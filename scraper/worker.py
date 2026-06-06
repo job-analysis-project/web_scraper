@@ -23,6 +23,7 @@ app = Celery("task",
              # only tasks that are defined using @app.task() decorator in the specified module will be registered with this Celery instance
              include=[
                  "scraper.tasks_104_scraper", # scraping 104
+                 "scraper.tasks_cake_scraper" # scraping Cake
              ],
 
              broker=f"amqp://{WORKER_ACCOUNT}:{WORKER_PASSWORD}@{RABBITMQ_HOST}:{RABBITMQ_PORT}//")

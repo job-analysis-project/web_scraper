@@ -2,7 +2,7 @@ from scraper.worker import app
 import requests
 from bs4 import BeautifulSoup
 import time
-
+import pandas as pd
 
 @app.task()
 def scrape_104_jobs(search_term, page):
@@ -107,3 +107,4 @@ def scrape_104_jobs_print(search_term, page):
     except Exception as e:
         print(f"An error occurred: {e}")
         return None
+    
