@@ -14,7 +14,7 @@ print("Task for 104 scraper has been sent to the queue.")
 
 # ------ Cake ------ #
 
-# the roles to look for 
+# the roles to look for on cake
 search_keyword = "data engineer"
 
 # send the task to the "cake_jobs" queue
