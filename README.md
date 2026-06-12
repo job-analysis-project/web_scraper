@@ -32,3 +32,4 @@ Sending tasks (Producer) → RabbitMQ → Worker (by which the scraper is conduc
 
 #### start the woker 
     uv run celery -A scraper.worker worker --loglevel=info
+    uv run celery -A scraper.worker worker -Q 104_jobs,cake_jobs --loglevel=info 

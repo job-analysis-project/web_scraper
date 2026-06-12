@@ -4,5 +4,13 @@
 from scraper.tasks_104_scraper import scrape_104_jobs
 
 # distribute the task to the Celery worker, and get the result
-args = ('資料工程師', 1)  # example arguments for the scraping task
-scrape_104_jobs.delay(*args)  # use .delay() to send the task to the Celery worker asynchronously
+
+# start page & end page
+start = 1
+end = 5
+
+for page_num in range(start, end):
+
+    args = ('資料工程師', page_num)  # example arguments for the scraping task
+    print(f"Loading page {page_num}...")
+    scrape_104_jobs.delay(*args)  # use .delay() to send the task to the Celery worker asynchronously

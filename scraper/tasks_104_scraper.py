@@ -4,8 +4,41 @@ from bs4 import BeautifulSoup
 import time
 import pandas as pd
 from loguru import logger 
+from sqlalchemy import create_engine
+from sqlalchemy.dialects.mysql import insert
+from sqlalchemy.pool import NullPool
+from sqlalchemy import MetaData, Table, Column, Integer, String, CHAR, Text, TIMESTAMP, UniqueConstraint, text
+from scraper.config import MYSQL_ACCOUNT, MYSQL_HOST, MYSQL_PASSWORD, MYSQL_PORT
+        
+# create the connection to MySQL database
+engine = create_engine(
+    f"mysql+pymysql://{MYSQL_ACCOUNT}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/data_jobs",
+    poolclass=NullPool
+)
+# define the table 
+metadata = MetaData()
 
-@app.task()
+jobs_table = Table(
+    "jobs_104", 
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("job_name", String(100), nullable=False),
+    Column("company", String(50), nullable=False),
+    Column("location", String(50), nullable=False),
+    Column("experience", Integer, nullable=False),
+    Column("remote", CHAR(3), nullable=False),
+    Column("salary_low", Integer, nullable=False),
+    Column("salary_high", Integer, nullable=False),
+    Column("link", Text, nullable=False),
+    Column("inserted_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"), nullable=False),
+    
+    # unique key to prevent duplicated job postings
+    UniqueConstraint("job_name", "company", "location", name="uix_job_company_location")
+)
+
+# create table if not exist 
+metadata.create_all(engine)
+
 # the scrape function for 104 jobs, takes in the search term and the page number as parameters
 def scrape_104_jobs(search_term, page):
     based_url = "https://www.104.com.tw/jobs/search/api/jobs"
@@ -35,7 +68,7 @@ def scrape_104_jobs(search_term, page):
             data = data["data"]
             for job in data:
                 description = {
-                    "jobName": job["jobName"],
+                    "job_name": job["jobName"],
                     "company": job["custName"],
                     "location": job["jobAddrNoDesc"],
                     "experience": job["jobRo"],
@@ -54,10 +87,6 @@ def scrape_104_jobs(search_term, page):
         print(f"An error occurred: {e}")
         return None
 
-
-# ---------  testing code --------- #
-# scrape_104_jobs('資料工程師', 1)
-# print(scrape_104_jobs('資料工程師', 1))
 
 
 # for printing out the results in the console
@@ -91,8 +120,7 @@ def scrape_104_jobs_print(search_term, page):
             data = data["data"]
             for job in data:
                 description = {
-                    "source": "104",
-                    "jobName": job["jobName"],
+                    "job_name": job["jobName"],
                     "company": job["custName"],
                     "location": job["jobAddrNoDesc"],
                     "experience": job["jobRo"],
@@ -111,35 +139,31 @@ def scrape_104_jobs_print(search_term, page):
         return None
     
 # upload to MySQL in one task
-@app.task()
-def scrape_104_jobs_upload_mysql():
-    from sqlalchemy import create_engine
-    from sqlalchemy.dialects.mysql import insert
-    from sqlalchemy import MetaData, Table, Column, String, Integer, Float, Date
-    from scraper.config import MYSQL_ACCOUNT, MYSQL_HOST, MYSQL_PASSWORD, MYSQL_PORT
+@app.task(bind=True, max_retries=3)
+def scrape_104_jobs_upload_mysql(self, search_term, page):
     
-    df = scrape_104_jobs("資料工程師", 2)
-    # create the connection to MySQL database
-    engine = create_engine(
-        f"mysql+pymysql://{MYSQL_ACCOUNT}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/data_jobs"
-    )
+    # the data scraped from the website
+    df = scrape_104_jobs(search_term, page)
 
-    metadata = MetaData()
-    # go through the dataframe and insert each row into the MySQL database
-    for _, row in df.iterrows():
-        # create an insert statement for the job listing
-        stmt = insert(Table("jobs_104", MetaData(), autoload_with=engine)).values(
-            job_name=row["jobName"],
-            company=row["company"],
-            location=row["location"],
-            experience=row["experience"],
-            remote=row["remote"],
-            salary_low=row["salary_low"],
-            salary_high=row["salary_high"],
-            link=row["link"],
+    if df is None or df.empty:
+        logger.warning(f'No data found on page {page}.')
+        return 'No data'
+    
+    # convert the data frame to a list of dict for bulk insert
+    records = df.to_dict(orient="records")
+
+    with engine.connect() as conn:
+        # create an insert statement
+        insert_stmt = insert(jobs_table).values(records)
+
+        # add 'ON DUPLICATE KEY UPDATE' logic
+        on_duplicate_stmt = insert_stmt.on_duplicate_key_update(
+            salary_low=insert_stmt.inserted.salary_low,
+            salary_high=insert_stmt.inserted.salary_high,
+            
         )
         # execute the insert statement
-        with engine.connect() as conn:
-            conn.execute(stmt)
-            conn.commit()  # commit the transaction after each insert
-        logger.info(f"Finished uploading job: {row['jobName']} at {row['company']} to MySQL database.")
+        conn.execute(on_duplicate_stmt)
+        conn.commit()  # commit the transaction after each insert
+    logger.info(f'Successfully uploaded {len(df)} jobs to MySQL for page {page}') 
+    return f"Success: Page {page}"
