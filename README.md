@@ -39,6 +39,9 @@ Sending tasks (Producer) → RabbitMQ → Worker (by which the scraper is conduc
 
 ### alternatively, running it using Docker
 *create a container*
-    docker run -it --rm ubuntu:22.04 bash
+
+    `docker run -it --rm ubuntu:22.04 bash`
+
 *create a network*
-    docker network create job_network
+
+    `docker network create job_network`
