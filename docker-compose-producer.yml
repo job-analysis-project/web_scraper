@@ -5,7 +5,7 @@ services:
     image: clara690/scraper:${DOCKER_IMAGE_VERSION} # the image & tag to use
     hostname: "job_hunter"
     command: uv run --env-file=.env python -m scraper.producer_multi_queue
-    # restart the container if if breaks down
+
     environment:
       - TZ=Asia/Taipei  # set the time zone to Taipei 
     networks:
