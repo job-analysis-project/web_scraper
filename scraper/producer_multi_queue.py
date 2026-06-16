@@ -1,36 +1,42 @@
 from scraper.tasks_104_scraper import scrape_104_jobs_upload_mysql
-from scraper.tasks_cake_scraper import scrape_cake_jobs
+from scraper.tasks_cake_scraper import scrape_cake_jobs_upload_mysql
 
 
 # ------ 104 ------ #
 
 # # the roles to look for and the page number to scrape
-# search_keyword, page = "資料工程師", 1
+# search_keyword, page = '資料工程師', 1
 
-# # send the task to the "104_jobs" queue
+# # send the task to the '104_jobs' queue
 # task_104 = scrape_104_jobs.s(search_keyword, page)
-# task_104.apply_async(queue="104_jobs") # send the task to the "104_jobs" queue 
-# print("Task for 104 scraper has been sent to the queue.")
+# task_104.apply_async(queue='104_jobs') # send the task to the '104_jobs' queue 
+# print('Task for 104 scraper has been sent to the queue.')
 
 # ------ 104 ------ loop ver. #
 # start page and end page
 start = 1
-end = 6
+end = 30
+search_terms = ['資料工程師', '資料分析師', '資料科學家', '軟體工程師']
 
-for page_num in range(start, end + 1):
-    args = ('資料工程師', page_num)
-    task_104 = scrape_104_jobs_upload_mysql.s(*args)
-    task_104.apply_async(queue='104_jobs') # send the task to the '104_jobs' queue
-print(f'{end} tasks for 104 scraper sent to the queue!')
+for search_term in search_terms:
+    for page_num in range(start, end+1):
+        args = (search_term, page_num)
+        task_104 = scrape_104_jobs_upload_mysql.s(*args)
+        task_104.apply_async(queue='104_jobs') # send the task to the '104_jobs' queue
+    print(f'{search_term} a total of:{end - start +1} tasks for 104 scraper sent to the queue!')
 
 
 
 # ------ Cake ------ #
 
 # the roles to look for on cake
-search_keyword = "data engineer"
-
-# send the task to the "cake_jobs" queue
-task_cake = scrape_cake_jobs.s(search_keyword)
-task_cake.apply_async(queue="cake_jobs") # send the task to the "cake_jobs" queue
-print("Task for Cake scraper has been sent to the queue.")
+search_keywords = ['data engineer', 'data analyst', 'ml engineer', 
+                   'software engineer', 'software developer']
+start = 1
+end = 30
+for search_keyword in search_keywords:
+    for page_num in range(start, end+1):
+    # send the task to the 'cake_jobs' queue
+        task_cake = scrape_cake_jobs_upload_mysql.s(search_keyword, page_num)
+        task_cake.apply_async(queue='cake_jobs') # send the task to the 'cake_jobs' queue
+    print(f'{search_keyword} a total of:{end - start +1} tasks task for Cake scraper has been sent to the queue.')
