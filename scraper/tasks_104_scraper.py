@@ -28,8 +28,8 @@ jobs_table = Table(
     Column("location", String(50), nullable=False),
     Column("experience", Integer, nullable=False),
     Column("remote", CHAR(3), nullable=False),
-    Column("salary_low", Integer, nullable=False),
-    Column("salary_high", Integer, nullable=False),
+    Column("salary_min", Integer, nullable=False),
+    Column("salary_max", Integer, nullable=False),
     Column("link", Text, nullable=False),
     Column("inserted_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"), nullable=False),
     
@@ -74,8 +74,8 @@ def scrape_104_jobs(search_term, page):
                     "location": job["jobAddrNoDesc"],
                     "experience": job["jobRo"],
                     "remote": job["remoteWorkType"],
-                    "salary_low": job["salaryLow"],
-                    "salary_high": job["salaryHigh"],
+                    "salary_min": job["salaryLow"],
+                    "salary_max": job["salaryHigh"],
                     "link": job["link"]["job"],
                 }
                 jobs.append(description)
@@ -111,8 +111,8 @@ def scrape_104_jobs_upload_mysql(self, search_term, page):
 
         # add 'ON DUPLICATE KEY UPDATE' logic
         on_duplicate_stmt = insert_stmt.on_duplicate_key_update(
-            salary_low=insert_stmt.inserted.salary_low,
-            salary_high=insert_stmt.inserted.salary_high,
+            salary_min=insert_stmt.inserted.salary_min,
+            salary_max=insert_stmt.inserted.salary_max,
             
         )
         # execute the insert statement
