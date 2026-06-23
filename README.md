@@ -38,7 +38,7 @@ Sending tasks (Producer) → RabbitMQ → Worker (by which the scraper is conduc
 *rename worker*
     uv run celery -A scraper.worker worker -n {name} --loglevel=info
 
-### alternatively, running it using Docker
+### Alternatively, running it using Docker
 *create a container*
 
 ```text
