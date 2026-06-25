@@ -9,18 +9,19 @@ import pandas as pd
 from loguru import logger 
 from sqlalchemy import create_engine
 from sqlalchemy.dialects.mysql import insert
+from sqlalchemy import select
 from sqlalchemy.pool import NullPool
 from sqlalchemy import MetaData, Table, Column, Integer, String, DateTime, Text, TIMESTAMP, UniqueConstraint, text
 from scraper.config import MYSQL_ACCOUNT, MYSQL_HOST, MYSQL_PASSWORD, MYSQL_PORT
         
 
-# CAKE_JOB_URL = "https://www.cake.me/jobs"
-API_URL = "https://api.cake.me/api/client/v1/jobs/search"
+# CAKE_JOB_URL = 'https://www.cake.me/jobs'
+API_URL = 'https://api.cake.me/api/client/v1/jobs/search'
 # DEFAULT_HEADERS = {
-#     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
+#     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36'
 # }
 HEADERS = {
-    'sec-ch-ua-platform': '"Windows"',
+     'sec-ch-ua-platform': '"Windows"',
     'Referer': 'https://www.cake.me/',
     'sec-ch-ua': '"Google Chrome";v="149", "Chromium";v="149", "Not)A;Brand";v="24"',
     'sec-ch-ua-mobile': '?0',
@@ -32,35 +33,47 @@ HEADERS = {
 
 # create the connection to MySQL database
 engine = create_engine(
-    f"mysql+pymysql://{MYSQL_ACCOUNT}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/data_jobs",
+    f'mysql+pymysql://{MYSQL_ACCOUNT}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/data_jobs',
     poolclass=NullPool
 )
 # define the table 
 metadata = MetaData()
 
+# the main table 
+# location information is stored in another table as some roles are associated with more than one location
 jobs_table = Table(
-     "jobs_cake", 
+     'jobs_cake', 
      metadata,
-     Column("id", Integer, primary_key=True, autoincrement=True),
-     Column("job_name", String(100), nullable=False),
-     Column("company", String(50), nullable=False),
-     Column("location", String(255), nullable=False),
-     Column("job_type", String(50), nullable=True),  
-     Column("experience", String(50), nullable=True),
-     Column("manage_resp", String(50), nullable=True),
-     Column("seniority", String(50), nullable=True),
-     Column("remote", String(10), nullable=True),
-     Column("salary_min", String(50), nullable=True),
-     Column("salary_max", String(50), nullable=True),
-     Column("salary_crcy", String(50), nullable=True),
-     Column("salary_type", String(50), nullable=True),
-     Column("popularity", Integer, nullable=True),
-     Column("link", Text, nullable=False),
-     Column("last_updated", DateTime(6), nullable=True),
-     Column("inserted_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"), nullable=False),
+     Column('id', Integer, primary_key=True, autoincrement=True),
+     Column('job_name', String(100), nullable=False),
+     Column('company', String(100), nullable=False),
+     Column('job_type', String(50), nullable=True),  
+     Column('experience', Integer, nullable=True),
+     Column('manage_resp', String(50), nullable=True),
+     Column('seniority', String(50), nullable=True),
+     Column('remote', String(10), nullable=True),
+     Column('salary_min', Integer, nullable=True),
+     Column('salary_max', Integer, nullable=True),
+     Column('salary_crcy', String(5), nullable=True), # currency
+     Column('salary_type', String(50), nullable=True),
+     Column('popularity', Integer, nullable=True),
+     Column('link', Text, nullable=False),
+     Column('last_updated', DateTime(6), nullable=True),
+     Column('inserted_at', TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'), nullable=False),
     
 #     # unique key to prevent duplicated job postings
-    UniqueConstraint("job_name", "company", "location", name="uix_job_company_location")
+    UniqueConstraint('job_name', 'company', name='uix_job_company')
+)
+# the bridge table 
+job_location_table = Table(
+    'job_location_cake',
+    metadata,
+    Column('id', Integer, primary_key=True, autoincrement=True),
+    Column('job_id', Integer, nullable=False),
+    Column('location', String(100), nullable=False),    
+    
+    # unique key to prevent duplicate locations for the same job
+    UniqueConstraint('job_id', 'location', name='uix_job_id_location')
 )
 
 # create table if not exist 
@@ -84,12 +97,12 @@ def scrape_cake_jobs(search_terms, page):
         response = requests.post(API_URL, json=json_data, headers=HEADERS, timeout=10)
         print(response.url)
         if  response.status_code != 200:
-            print(f"Failed to access the website. Status code: {response.status_code}")
+            print(f'Failed to access the website. Status code: {response.status_code}')
 
             return None
-        # soup = BeautifulSoup(response.content, "html.parser")
+        # soup = BeautifulSoup(response.content, 'html.parser')
     except requests.exceptions.RequestException as e:
-        print(f"Network error occurred:{e}")
+        print(f'Network error occurred:{e}')
         return None
     
     # the raw data of job postings
@@ -105,22 +118,25 @@ def scrape_cake_jobs(search_terms, page):
 
         # extract all 'en' values and ignore any missing ones
         english_locations = [loc.get('en') for loc in locales if loc.get('en')]
-        
-        # join the locations into one string
-        joined_locations = '|'.join(english_locations) if english_locations else None
+
+        # some basic preprocessing to prevent the function from crashing
+        title = job.get('title')
+        company_name = job.get('page', {}).get('name')
+        salary_min = job.get('salary', {}).get('min')
+        salary_max = job.get('salary', {}).get('max')
 
         # new dictionary with only the desired keys
         filtered_job = {            
-            'job_name': job.get('title'),
-            'company': job.get('page', {}).get('name'),
-            'location': joined_locations,
+            'job_name': title[:100] if len(title) > 100 else title,
+            'company': company_name[:100] if len(company_name) > 100 else company_name,
+            'raw_locations': english_locations,
             'job_type': job.get('job_type'),
             'experience': job.get('min_work_exp_year'),
             'manage_resp': job.get('number_of_management'),
             'seniority':job.get('seniority_level'),
             'remote': None,
-            'salary_min': job.get('salary', {}).get('min'),
-            'salary_max': job.get('salary', {}).get('max'),
+            'salary_min': int(float(salary_min)) if salary_min else None,
+            'salary_max': int(float(salary_max)) if salary_max else None,
             'salary_crcy': job.get('salary', {}).get('currency'),
             'salary_type':job.get('salary', {}).get('type'),
             'popularity': job.get('unique_impressions_count'),
@@ -139,23 +155,64 @@ def scrape_cake_jobs_upload_mysql(self, search_term, page):
     # the data scrpae from cake 
     records = scrape_cake_jobs(search_term, page)
 
+
     if not records:
         logger.warning(f'No data found on page {page}.')
         return 'No data'
 
     with engine.connect() as conn:
-        # create an insert statement
-        insert_stmt = insert(jobs_table).values(records)
+    # prepare the data 
+        jobs_to_insert = []
+        location_map = {} # Maps a unique key to its location 
+        
+        for record in records:
+            # extract locations and remove from the main dict
+            locs = record.pop('raw_locations', [])
+            jobs_to_insert.append(record)
 
-        # add 'ON DUPLICATE KEY UPDATE' logic
+            # create a composite key to track this job
+            unique_key = (record['job_name'], record['company'])
+            location_map[unique_key] = locs
+        # insert all jobs 
+        insert_stmt = insert(jobs_table).values(jobs_to_insert)
         on_duplicate_stmt = insert_stmt.on_duplicate_key_update(
             salary_min = insert_stmt.inserted.salary_min,
             salary_max = insert_stmt.inserted.salary_max
-
         )
-        # execute the insert statement
         conn.execute(on_duplicate_stmt)
-        conn.commit() # commit the transaction after each insert 
+
+        # fetch the corresponding ids in the main table 
+        job_name = [j['job_name'] for j in jobs_to_insert]
+        companies = [j['company'] for j in jobs_to_insert]
+
+        fetch_stmt = select(jobs_table.c.id, jobs_table.c.job_name, jobs_table.c.company).where(
+            jobs_table.c.job_name.in_(job_name),
+            jobs_table.c.company.in_(companies)
+        )
+        db_jobs = conn.execute(fetch_stmt).fetchall()
+
+        # insert location info to the location table
+        locations_to_insert = []
+        for db_job in db_jobs:
+            job_id = db_job.id
+            unique_key = (db_job.job_name, db_job.company)
+            
+            # match the DB id back to the locations 
+            if unique_key in location_map:
+                for loc in location_map[unique_key]:
+                    locations_to_insert.append({
+                        'job_id': job_id,
+                        'location': loc
+                    })
+        if locations_to_insert:
+            loc_insert_stmt = insert(job_location_table).values(locations_to_insert)
+            # use insert ignore to prevent duplicate location rows
+            loc_on_duplicate = loc_insert_stmt.on_duplicate_key_update(
+                job_id = loc_insert_stmt.inserted.job_id
+            )
+            conn.execute(loc_on_duplicate)
+        conn.commit()
+
     logger.info(f'Successfully uploaded {len(records)} jobs to MySQL for page {page}')
-    return f"Success: Page {page}"
+    return f'Success: Page {page}'
 
