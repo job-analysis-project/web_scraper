@@ -19,31 +19,37 @@ Sending tasks (Producer) → RabbitMQ → Worker (by which the scraper is conduc
 | [Celery](https://docs.celeryq.dev/) | asynchronous task queue|
 | [RabbitMQ](https://www.rabbitmq.com/) | broker |
 | [Flower](https://flower.readthedocs.io/) | Celery GUI |
+| [Docker](https://www.docker.com/) | For running applications using docker image|
 
 ## How to run this project 
 You can choose to either run this project locally or using docker 😃
 
 ### Run the project locally  
 
-#### start the message broker: RabbitMQ
+#### Start the message broker: RabbitMQ
 ```text
 docker compose -f rabbitmq.yml up -d
+```
+or
+```text
 docker compose -f rabbitmq-network.yml up -d 
 ```
 ⚠️ Note the difference between the files starting with *rabbitmq*
 The first setup hosts the service locally while the second one run the service in a container.
 
-#### send the tasks to the broker 
+#### Send the tasks to the broker 
 
     uv run python -m scraper.producer_{file_name}
 
-#### start the woker 
+#### Start the woker 
     uv run celery -A scraper.worker worker --loglevel=info
     uv run celery -A scraper.worker worker -Q 104_jobs,cake_jobs --loglevel=info 
     uv run celery -A scraper.worker worker -n {worker_name} -Q 104_jobs,cake_jobs --loglevel=info
 
 *rename worker*
-    uv run celery -A scraper.worker worker -n {name} --loglevel=info
+```text
+uv run celery -A scraper.worker worker -n {name} --loglevel=info
+```
 
 ### Alternatively, running it using Docker
 #### Create a container
@@ -64,7 +70,7 @@ docker network create job_network
 DOCKER_IMAGE_VERSION=0.0.5 docker compose -f docker-compose-producer.yml up -d
 ```
 
-#### run the worker using docker compose to execute tasks
+#### Run the worker using docker compose to execute tasks
 
 ```text
 DOCKER_IMAGE_VERSION=0.0.5 docker compose -f docker-compose-worker.yml up -d
