@@ -31,7 +31,7 @@ for search_term in search_terms:
 
 # the roles to look for on cake
 search_keywords = ['data engineer', 'data analyst', 'ml engineer', 
-                   'software engineer', 'software developer']
+                   'software engineer', 'software developer', 'database engineer']
 start = 1
 end = 30
 for search_keyword in search_keywords:

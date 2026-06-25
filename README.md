@@ -17,7 +17,7 @@ Sending tasks (Producer) → RabbitMQ → Worker (by which the scraper is conduc
 | Python 3.11 | The main developing language |
 | [uv](https://docs.astral.sh/uv/) | package management |
 | [Celery](https://docs.celeryq.dev/) | asynchronous task queue|
-| [RabbitMQ](https://www.rabbitmq.com/) | broker |
+| [RabbitMQ](https://www.rabbitmq.com/) |message  broker |
 | [Flower](https://flower.readthedocs.io/) | Celery GUI |
 | [Docker](https://www.docker.com/) | For running applications using docker image|
 
