@@ -17,9 +17,9 @@ Sending tasks (Producer) → RabbitMQ → Worker (by which the scraper is conduc
 | Python 3.11 | The main developing language |
 | [uv](https://docs.astral.sh/uv/) | package management |
 | [Celery](https://docs.celeryq.dev/) | asynchronous task queue|
-| [RabbitMQ](https://www.rabbitmq.com/) |message  broker |
+| [RabbitMQ](https://www.rabbitmq.com/) | message  broker |
 | [Flower](https://flower.readthedocs.io/) | Celery GUI |
-| [Docker](https://www.docker.com/) | For running applications using docker image|
+| [Docker](https://www.docker.com/) | For running applications in a container|
 
 ## How to run this project 
 You can choose to either run this project locally or using docker 😃
@@ -51,7 +51,7 @@ The first setup hosts the service locally while the second one run the service i
 uv run celery -A scraper.worker worker -n {name} --loglevel=info
 ```
 
-### Alternatively, running it using Docker
+### Alternatively, running it using Docker 🐋
 #### Create a container
 
 ```text
