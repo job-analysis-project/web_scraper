@@ -3,6 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 import time
 import pandas as pd
+import numpy as np
 from loguru import logger 
 from sqlalchemy import create_engine
 from sqlalchemy.dialects.mysql import insert
@@ -25,7 +26,9 @@ jobs_table = Table(
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("job_name", String(255), nullable=False),
     Column("company", String(50), nullable=False),
-    Column("location", String(50), nullable=False),
+    Column("raw_location", String(50), nullable=False),
+    Column("city", String(50),nullable=True),
+    Column("district", String(50), nullable=True),
     Column("experience", Integer, nullable=False),
     Column("remote", CHAR(3), nullable=False),
     Column("salary_min", Integer, nullable=False),
@@ -34,7 +37,7 @@ jobs_table = Table(
     Column("inserted_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"), nullable=False),
     
     # unique key to prevent duplicated job postings
-    UniqueConstraint("job_name", "company", "location", name="uix_job_company_location")
+    UniqueConstraint("job_name", "company", "raw_location", name="uix_job_company_location")
 )
 
 # create table if not exist 
@@ -68,10 +71,13 @@ def scrape_104_jobs(search_term, page):
             data = response.json()
             data = data["data"]
             for job in data:
+                raw_loc = job["jobAddrNoDesc"]
                 description = {
                     "job_name": job["jobName"],
                     "company": job["custName"],
-                    "location": job["jobAddrNoDesc"],
+                    "raw_location": raw_loc,
+                    "city":raw_loc[:3] if raw_loc[:3] else None,
+                    "district":raw_loc[3:] if raw_loc[3:] else None,
                     "experience": job["jobRo"],
                     "remote": job["remoteWorkType"],
                     "salary_min": job["salaryLow"],
@@ -80,6 +86,7 @@ def scrape_104_jobs(search_term, page):
                 }
                 jobs.append(description)
             df = pd.DataFrame(jobs)
+            df = df.replace({np.nan: None})
             return df
         else:
             print(f"Failed to retrieve data: {response.status_code}")

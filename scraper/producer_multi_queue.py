@@ -16,7 +16,7 @@ from scraper.tasks_cake_scraper import scrape_cake_jobs_upload_mysql
 # start page and end page
 start = 1
 end = 35
-search_terms = ['資料工程師', '資料分析師', '資料科學家', '軟體工程師']
+search_terms = ['資料工程師', '資料分析師', '資料科學家', '軟體工程師', '大數據專員', 'python工程師']
 
 for search_term in search_terms:
     for page_num in range(start, end+1):
@@ -33,7 +33,7 @@ for search_term in search_terms:
 search_keywords = ['data engineer', 'data analyst', 'ml engineer', 
                    'software engineer', 'software developer', 'database engineer']
 start = 1
-end = 30
+end = 35
 for search_keyword in search_keywords:
     for page_num in range(start, end+1):
     # send the task to the 'cake_jobs' queue
